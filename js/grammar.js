@@ -1,0 +1,138 @@
+window.EV = window.EV || {};
+window.EV.data = window.EV.data || {};
+
+const grammarStages = [
+  {
+    id: "stage-1",
+    title: "Aşama 1 — Günlük hayatın temelleri",
+    description: "Günlük hayatta sayı, zaman, adres ve temel yön ifadelerini öğren.",
+    topics: [
+      ["İngilizce alfabe ve telaffuz", "A–Z, harfleri ve isimleri heceleme", "Can you spell your name?"],
+      ["Sayılar (0–100)", "Temel sayıların okunuşu", "I have twenty books."],
+      ["Büyük sayılar", "Yüzler, binler, milyonlar ve milyarlar", "The city has two million people."],
+      ["Sıra sayıları", "First, second, third...", "This is my first day."],
+      ["Günler, aylar ve mevsimler", "", "My birthday is in May."],
+      ["Tarihlerin okunması", "Gün, ay ve tarih söyleme", "Today is the fifth of June."],
+      ["Yılların okunması", "1999, 2005, 2026", "She was born in 1999."],
+      ["Saatlerin okunması", "Tam, buçuk, çeyrek, kala, geçe, AM/PM", "The meeting is at half past three."],
+      ["Para ve fiyatların okunması", "TL, dolar, euro, cent, kuruş", "This shirt costs twenty euros."],
+      ["Ondalık sayılar, kesirler ve yüzdeler", "", "The discount is ten percent."],
+      ["Telefon numaralarının okunması", "", "My phone number is 555 123 45 67."],
+      ["Adreslerin söylenmesi", "Sokak, cadde, bina, daire, posta kodu", "I live at 24 Green Street."],
+      ["E-posta ve internet adresleri", "At, dot, slash, underscore", "My email is ali underscore kaya at mail dot com."],
+      ["Ölçü birimleri", "Metre, kilometre, kilo, litre, derece", "The water is two degrees cold."],
+      ["Temel yön ve konum tarifleri", "Sağ, sol, düz, kuzey, güney", "The bank is on your left."],
+    ],
+  },
+  {
+    id: "stage-2",
+    title: "Aşama 2 — İngilizcenin temel grameri",
+    description: "Basit cümleleri kurmayı, soru sormayı ve temel gramer yapılarını kullanmayı öğren.",
+    topics: [
+      ["İngilizce cümle yapısı", "Subject + Verb + Object", "I read a book."],
+      ["Özne zamirleri", "I, you, he, she, it, we, they", "They live in Ankara."],
+      ["Am / Is / Are", "Olumlu ve olumsuz cümleler", "She is not at home."],
+      ["Am / Is / Are ile soru sorma", "", "Are you ready?"],
+      ["A / An / The", "Tanımlıklar", "I saw a dog in the park."],
+      ["Tekil ve çoğul isimler", "", "There are two chairs."],
+      ["This / That / These / Those", "", "These shoes are new."],
+      ["İyelik yapıları", "My, your, mine, yours, 's", "This is Sara's bag."],
+      ["Nesne zamirleri", "Me, him, her, us, them", "Please call me later."],
+      ["Have / Has / Have Got", "", "He has got a new phone."],
+      ["There is / There are", "", "There is a shop near here."],
+      ["Soru kelimeleri", "What, where, why, when, who, how", "Where do you work?"],
+      ["Yer edatları", "In, on, under, between...", "The keys are on the table."],
+      ["Zaman ve hareket edatları", "In, on, at, to, from", "I go to work at eight."],
+      ["Sıfatlar ve cümledeki yerleri", "", "It is a small house."],
+      ["Emir ve öneri cümleleri", "Open, don't, let's", "Let's take a break."],
+      ["Temel bağlaçlar", "And, but, or, because, so", "I stayed home because it rained."],
+    ],
+  },
+  {
+    id: "stage-3",
+    title: "Aşama 3 — Günlük konuşma grameri",
+    description: "Rutinleri, istekleri, yetenekleri ve günlük konuşmadaki temel anlamları ifade et.",
+    topics: [
+      ["Simple Present", "Günlük rutinler", "I drink coffee every morning."],
+      ["Do / Does / Don't / Doesn't", "", "She doesn't like tea."],
+      ["Sıklık zarfları", "Always, usually, often, never", "We usually eat at home."],
+      ["Present Continuous", "", "I am studying English now."],
+      ["Simple Present ve Present Continuous farkı", "", "I work here, but I am working from home today."],
+      ["Can / Can't", "", "Can you swim?"],
+      ["Could / Couldn't", "", "Could you open the window?"],
+      ["Should / Shouldn't", "", "You should see a doctor."],
+      ["Must / Mustn't", "", "You must wear a seat belt."],
+      ["Have to / Don't have to", "", "I have to leave early."],
+      ["Would like", "", "I would like some water."],
+      ["May / Might", "", "It might rain tonight."],
+      ["Sayılabilen ve sayılamayan isimler", "", "We need some information."],
+      ["Some / Any", "", "Do you have any questions?"],
+      ["Much / Many / A lot of / A few / A little", "", "There are many people here."],
+      ["Karşılaştırmalar", "Bigger, better, the best", "This book is better than that one."],
+      ["Too / Enough", "", "This bag is too heavy."],
+      ["Zarflar", "Slowly, quickly, carefully", "Please drive carefully."],
+      ["Like + ing / Want + to", "", "I like reading and want to learn more."],
+      ["Someone / Anyone / Something / Nothing", "", "Someone left a message."],
+      ["Fiil + edat kalıpları", "Listen to, wait for", "Please listen to me."],
+      ["How much / How many / How often / How long", "", "How often do you exercise?"],
+      ["When / Before / After / While / Until", "", "Call me when you arrive."],
+    ],
+  },
+  {
+    id: "stage-4",
+    title: "Aşama 4 — Geçmiş, gelecek ve deneyimler",
+    description: "Geçmiş olayları, planları ve yaşanmış deneyimleri farklı zamanlarla anlat.",
+    topics: [
+      ["Was / Were", "", "We were at home yesterday."],
+      ["Simple Past — Düzenli fiiller", "", "I watched a film last night."],
+      ["Simple Past — Düzensiz fiiller", "", "She went to work early."],
+      ["Did / Didn't", "", "Did you see the message?"],
+      ["Past Continuous", "", "I was cooking when you called."],
+      ["Will / Won't", "", "I will call you tomorrow."],
+      ["Be Going To", "", "We are going to travel next week."],
+      ["Present Continuous ile gelecek anlatımı", "", "I am meeting my friend tonight."],
+      ["Will / Going To / Present Continuous farkları", "", "I will help you; we are going to start soon."],
+      ["Used To", "", "I used to live in Izmir."],
+      ["Present Perfect", "Have / Has + V3", "I have finished my work."],
+      ["Ever / Never / Just / Already / Yet", "", "Have you ever been to London?"],
+      ["For / Since ve Present Perfect–Simple Past farkı", "", "I have lived here for three years."],
+    ],
+  },
+  {
+    id: "stage-5",
+    title: "Aşama 5 — B1 için önemli yapılar",
+    description: "B1 seviyesine geçerken daha zengin cümleler kurmanı sağlayan yapıları tanı.",
+    topics: [
+      ["Zero / First Conditional", "", "If you heat ice, it melts."],
+      ["Second Conditional", "", "If I had more time, I would travel."],
+      ["Who / Which / That — Relative Clauses", "", "This is the book that I bought."],
+      ["Passive Voice", "", "The letters are sent every morning."],
+      ["Phrasal Verbs", "Turn on, look for, give up", "Please turn on the light."],
+      ["Kibar dolaylı sorular", "Could you tell me...?", "Could you tell me where the station is?"],
+      ["Reported Speech", "", "She said that she was tired."],
+      ["Past Perfect", "", "The train had left before we arrived."],
+      ["Present Perfect Continuous", "", "I have been waiting for an hour."],
+      ["Must / Might / Can't ile tahmin", "", "He must be at work."],
+      ["Although / However / Despite", "", "Although it was cold, we went outside."],
+    ],
+  },
+];
+
+let grammarTopicNumber = 0;
+const grammarTopics = grammarStages.map((stage) => ({
+  ...stage,
+  topics: stage.topics.map(([title, detail, example]) => {
+    grammarTopicNumber += 1;
+    return {
+      id: `grammar-${String(grammarTopicNumber).padStart(3, "0")}`,
+      title,
+      detail,
+      example,
+    };
+  }),
+}));
+
+window.EV.data.grammar = {
+  version: 1,
+  stages: grammarTopics,
+};

@@ -2,6 +2,10 @@
   const EV = window.EV || {};
   const categories = EV.data?.categories || [];
   const words = EV.data?.words || [];
+  const grammarStages = EV.data?.grammar?.stages || [];
+  const grammarTopics = grammarStages.flatMap((stage) => stage.topics || []);
+  const grammarTopicIds = new Set(grammarTopics.map((topic) => topic.id));
+  const grammarTopicNumbers = new Map(grammarTopics.map((topic, index) => [topic.id, index + 1]));
   const main = document.querySelector("#main-content");
   const navContext = document.querySelector("#nav-context-label");
 
@@ -47,6 +51,7 @@
 
   const studyTools = EV.study || {};
   const STUDY_STORAGE_KEY = "english-vocabulary:sprint4:v1";
+  const GRAMMAR_STORAGE_KEY = "ev.grammar.progress.v1";
   const MAX_STUDY_WORDS = 20;
   let studyActionLocked = false;
 
@@ -92,6 +97,37 @@
   }
 
   let progress = safeReadProgress();
+
+  function safeReadGrammarProgress() {
+    try {
+      const stored = window.localStorage.getItem(GRAMMAR_STORAGE_KEY);
+      if (!stored) {
+        return new Set();
+      }
+
+      const parsed = JSON.parse(stored);
+      if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.completedIds)) {
+        return new Set();
+      }
+
+      return new Set(parsed.completedIds.filter((id) => grammarTopicIds.has(id)));
+    } catch {
+      return new Set();
+    }
+  }
+
+  let grammarProgress = safeReadGrammarProgress();
+
+  function persistGrammarProgress() {
+    try {
+      window.localStorage.setItem(GRAMMAR_STORAGE_KEY, JSON.stringify({
+        version: 1,
+        completedIds: [...grammarProgress],
+      }));
+    } catch {
+      // LocalStorage kullanılamıyorsa seçimler yalnızca mevcut sekmede korunur.
+    }
+  }
 
   function persistProgress() {
     try {
@@ -276,6 +312,10 @@
       return { type: "home" };
     }
 
+    if (parts[0] === "grammar" && parts.length === 1) {
+      return { type: "grammar" };
+    }
+
     if (parts[0] === "category" && parts[1]) {
       const category = categoryById.get(parts[1]);
       return category ? { type: "category", category } : { type: "not-found" };
@@ -351,6 +391,11 @@
               <span class="card-arrow" aria-hidden="true">↗</span>
             </a>`).join("")}
         </div>
+        <a class="grammar-home-link" href="#/grammar">
+          <span class="grammar-home-icon" aria-hidden="true">${iconSvg("book")}</span>
+          <span><strong>Gramer çalışmalarım</strong><small>79 konuluk çalışma planını aç</small></span>
+          <span class="grammar-home-arrow" aria-hidden="true">↗</span>
+        </a>
       </section>`;
     return section;
   }
@@ -406,8 +451,9 @@
 
   function wordCardTemplate(word, index) {
     const isPhrase = word.partOfSpeech === "Phrase";
+    const isTechnical = Boolean(word.descriptionTr);
     return `
-      <article class="word-card" data-word-id="${word.id}">
+      <article class="word-card${isTechnical ? " word-card-technical" : ""}" data-word-id="${word.id}">
         <button class="word-card-trigger" type="button" aria-pressed="false" aria-label="${word.english} kartını çevir">
           <span class="word-card-face word-card-front">
             <span class="word-card-topline">
@@ -424,11 +470,16 @@
               <span class="word-card-index">${String(index + 1).padStart(2, "0")}</span>
             </span>
             <strong class="word-card-meaning">${word.turkish}</strong>
-            <span class="word-card-example">
+            ${isTechnical ? `
+            <span class="word-card-description">
+              <span class="word-card-description-label">Bu nedir?</span>
+              <em>${word.descriptionTr}</em>
+            </span>` : ""}
+            <span class="word-card-example word-card-example-en">
               <span>İngilizce örnek</span>
               <em>${word.exampleEn}</em>
             </span>
-            <span class="word-card-example">
+            <span class="word-card-example word-card-example-tr">
               <span>Türkçe çeviri</span>
               <em>${word.exampleTr}</em>
             </span>
@@ -489,7 +540,7 @@
               <h2 id="word-library-title">Eklenen kelimeler</h2>
             </div>
             <p class="word-library-summary"><strong>${actualWords.length} gerçek kart</strong><span>Bu sprintte eklenen içerik</span></p>
-            <a class="study-start-button" href="${linkForStudy(subcategory, selectedPart)}">
+            <a class="study-start-button" href="${linkForStudy(subcategory, selectedPart)}" data-start-new-tour="archive">
               <span aria-hidden="true">✦</span> Ezberlemeye başla
             </a>
           </div>
@@ -592,36 +643,14 @@
     return progress.active;
   }
 
-  function partLabel(partKey) {
-    return partKey === "all" ? "Tüm kelimeler" : `Part ${partKey}`;
+  function startFreshTour(subcategory, partNumber) {
+    progress.active = null;
+    progress.lastCompleted = null;
+    return createNewTour(subcategory, partNumber);
   }
 
-  function renderStudyConflict(subcategory, category, route) {
-    const activeEntry = subcategoryById.get(progress.active?.subcategoryId);
-    const activePartNumber = progress.active?.partKey === "all" ? null : Number(progress.active?.partKey);
-    const activeLink = activeEntry ? linkForStudy(activeEntry.subcategory, activePartNumber) : "#/";
-    const requestedContext = currentWordIds(subcategory, route.partNumber);
-    const section = document.createElement("section");
-    section.className = "route-view study-choice-view container";
-    section.innerHTML = `
-      ${breadcrumb([
-        { label: "Ana sayfa", href: "#/" },
-        { label: category.title, href: linkForCategory(category) },
-        { label: subcategory.title },
-      ])}
-      <div class="study-choice-card">
-        <div class="empty-state-icon" aria-hidden="true">${iconSvg("sparkles")}</div>
-        <p class="section-kicker">Devam eden tur</p>
-        <h1>Başka bir ezber turun devam ediyor.</h1>
-        <p><strong>${partLabel(progress.active?.partKey)}</strong> turunu yarıda bırakmadan önce seçim yapmalısın.</p>
-        <div class="study-choice-actions">
-          <a class="study-primary-button" href="${activeLink}">Mevcut tura dön</a>
-          <button class="study-secondary-button" type="button" data-start-new-tour>Yeni tur başlat</button>
-        </div>
-        <small>Yeni tur, mevcut devam eden turun kaydını sıfırlar.</small>
-      </div>
-      <p class="study-choice-context">Yeni tur alanı: ${subcategory.title} · ${partLabel(requestedContext.partKey)}</p>`;
-    return section;
+  function partLabel(partKey) {
+    return partKey === "all" ? "Tüm kelimeler" : `Part ${partKey}`;
   }
 
   function renderStudyCompletion(subcategory, category, summary) {
@@ -664,6 +693,7 @@
     const selectedCount = active.selectedWordIds.length;
     const progressPercent = Math.round((knownCount / selectedCount) * 100);
     const isPhrase = currentWord.partOfSpeech === "Phrase";
+    const isTechnical = Boolean(currentWord.descriptionTr);
     const section = document.createElement("section");
     section.className = "route-view study-view";
     section.innerHTML = `
@@ -690,7 +720,7 @@
 
         <div class="study-card-stage">
           <div
-            class="study-card-surface"
+            class="study-card-surface${isTechnical ? " study-card-technical" : ""}"
             data-study-card
             role="button"
             tabindex="0"
@@ -705,8 +735,9 @@
             <span class="study-card-face study-card-back" aria-hidden="true">
               <span class="study-card-label">${isPhrase ? "Türkçe karşılığı" : "Türkçe anlamı"}</span>
               <strong>${currentWord.turkish}</strong>
-              <span class="study-card-example"><small>İngilizce örnek</small>${currentWord.exampleEn}</span>
-              <span class="study-card-example"><small>Türkçe çeviri</small>${currentWord.exampleTr}</span>
+              ${isTechnical ? `<span class="study-card-description"><small>Bu nedir?</small>${currentWord.descriptionTr}</span>` : ""}
+              <span class="study-card-example study-card-example-en"><small>İngilizce örnek</small>${currentWord.exampleEn}</span>
+              <span class="study-card-example study-card-example-tr"><small>Türkçe çeviri</small>${currentWord.exampleTr}</span>
               <span class="study-card-type">${currentWord.partOfSpeech}</span>
             </span>
           </div>
@@ -865,6 +896,7 @@
         type: event.pointerType,
         x: event.clientX,
         y: event.clientY,
+        startedOnDescription: Boolean(event.target.closest?.(".study-card-description")),
       };
 
       if (event.pointerType === "mouse") {
@@ -881,7 +913,16 @@
       const deltaY = event.clientY - pointerStart.y;
       const horizontalSwipe = Math.abs(deltaX) >= swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY);
       const smallTap = Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10;
+      const startedOnDescription = pointerStart.startedOnDescription;
+      const endedOnDescription = Boolean(event.target.closest?.(".study-card-description"));
       pointerStart = null;
+
+      if (startedOnDescription || endedOnDescription) {
+        if (horizontalSwipe && card.classList.contains("is-flipped")) {
+          performStudyAction("unknown", deltaX < 0 ? "left" : "right");
+        }
+        return;
+      }
 
       if (horizontalSwipe) {
         if (card.classList.contains("is-flipped")) {
@@ -927,18 +968,17 @@
     main.querySelectorAll("[data-start-new-tour]").forEach((button) => {
       button.addEventListener("click", () => {
         const route = parseRoute();
+        if (route.type === "subcategory" && button.dataset.startNewTour === "archive") {
+          startFreshTour(route.subcategory, route.partNumber);
+          location.hash = linkForStudy(route.subcategory, route.partNumber).slice(1);
+          return;
+        }
+
         if (route.type !== "study") {
           return;
         }
 
-        const message = "Devam eden tur silinecek ve yeni bir tur başlayacak. Devam etmek istiyor musun?";
-        if (progress.active && !window.confirm(message)) {
-          return;
-        }
-
-        progress.active = null;
-        progress.lastCompleted = null;
-        createNewTour(route.subcategory, route.partNumber);
+        startFreshTour(route.subcategory, route.partNumber);
         render();
       });
     });
@@ -949,8 +989,7 @@
         return;
       }
 
-      progress.lastCompleted = null;
-      createNewTour(route.subcategory, route.partNumber);
+      startFreshTour(route.subcategory, route.partNumber);
       render();
     });
   }
@@ -972,7 +1011,8 @@
       if (!validOtherActive) {
         clearInvalidActiveTour();
       } else if (studyRouteKey(active.subcategoryId, active.partKey) !== requestedKey) {
-        return renderStudyConflict(subcategory, category, route);
+        const newTour = startFreshTour(subcategory, route.partNumber);
+        return newTour ? renderStudyActive(subcategory, category, newTour) : renderEmptySubcategory(subcategory, category);
       }
     }
 
@@ -1003,9 +1043,133 @@
     return section;
   }
 
+  function renderGrammar() {
+    const completedCount = grammarTopics.filter((topic) => grammarProgress.has(topic.id)).length;
+    const totalCount = grammarTopics.length;
+    const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+    const section = document.createElement("section");
+    section.className = "route-view grammar-view";
+    section.innerHTML = `
+      <div class="container">
+        ${breadcrumb([
+          { label: "Ana sayfa", href: "#/" },
+          { label: "Gramer" },
+        ])}
+
+        <header class="grammar-hero">
+          <div class="grammar-hero-copy">
+            <p class="section-kicker">Adım adım ilerle</p>
+            <h1>Gramer çalışmalarım</h1>
+            <p class="route-description">Temel yapılardan B1 konularına uzanan çalışma planını takip et, öğrendiğin konuları işaretle.</p>
+          </div>
+          <div class="grammar-hero-icon" aria-hidden="true">${iconSvg("book")}</div>
+        </header>
+
+        <section class="grammar-overview" aria-labelledby="grammar-overview-title">
+          <div class="grammar-overview-heading">
+            <div>
+              <p class="section-kicker">Genel ilerleme</p>
+              <h2 id="grammar-overview-title">Gramer yolculuğun</h2>
+            </div>
+            <strong class="grammar-percentage" data-grammar-percentage>${percentage}%</strong>
+          </div>
+          <div class="grammar-progress-track" role="progressbar" aria-label="Gramer ilerlemesi" aria-valuemin="0" aria-valuemax="${totalCount}" aria-valuenow="${completedCount}">
+            <span data-grammar-progress-bar style="width: ${percentage}%;"></span>
+          </div>
+          <div class="grammar-overview-stats">
+            <span><strong data-grammar-completed>${completedCount}</strong> / ${totalCount} konu tamamlandı</span>
+            <span>${totalCount} konuluk plan</span>
+          </div>
+        </section>
+
+        <section class="grammar-stage-list" aria-label="Gramer aşamaları">
+          ${grammarStages.map((stage, stageIndex) => {
+            const stageCompleted = stage.topics.filter((topic) => grammarProgress.has(topic.id)).length;
+            const stageIsComplete = stageCompleted === stage.topics.length;
+            return `
+              <details class="grammar-stage${stageIsComplete ? " is-complete" : ""}" open>
+                <summary class="grammar-stage-summary">
+                  <span class="grammar-stage-number">${String(stageIndex + 1).padStart(2, "0")}</span>
+                  <span class="grammar-stage-heading">
+                    <span class="section-kicker">Aşama ${stageIndex + 1}</span>
+                    <strong>${stage.title.replace(/^Aşama \d+ — /, "")}</strong>
+                    <small>${stage.description}</small>
+                  </span>
+                  <span class="grammar-stage-count" data-grammar-stage-count="${stage.id}">${stageCompleted}/${stage.topics.length}</span>
+                  <span class="grammar-stage-chevron" aria-hidden="true">⌄</span>
+                </summary>
+                <div class="grammar-topic-list">
+                  ${stage.topics.map((topic) => `
+                    <label class="grammar-topic-row${grammarProgress.has(topic.id) ? " is-complete" : ""}" data-grammar-topic-row="${topic.id}">
+                      <span class="grammar-topic-number">${String(grammarTopicNumbers.get(topic.id)).padStart(2, "0")}</span>
+                      <span class="grammar-topic-copy">
+                        <strong>${topic.title}</strong>
+                        ${topic.detail ? `<small>${topic.detail}</small>` : ""}
+                        ${topic.example ? `<em><span>Örnek</span>${topic.example}</em>` : ""}
+                      </span>
+                      <span class="grammar-topic-check">
+                        <input type="checkbox" data-grammar-checkbox="${topic.id}"${grammarProgress.has(topic.id) ? " checked" : ""} aria-label="${topic.title} tamamlandı">
+                        <span class="grammar-checkmark" aria-hidden="true">✓</span>
+                      </span>
+                    </label>`).join("")}
+                </div>
+              </details>`;
+          }).join("")}
+        </section>
+      </div>`;
+    return section;
+  }
+
+  function updateGrammarProgressUI() {
+    const completedCount = grammarTopics.filter((topic) => grammarProgress.has(topic.id)).length;
+    const totalCount = grammarTopics.length;
+    const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+    const percentageElement = main.querySelector("[data-grammar-percentage]");
+    const completedElement = main.querySelector("[data-grammar-completed]");
+    const progressBar = main.querySelector("[data-grammar-progress-bar]");
+    const progressTrack = progressBar?.parentElement;
+
+    if (percentageElement) percentageElement.textContent = `${percentage}%`;
+    if (completedElement) completedElement.textContent = completedCount;
+    if (progressBar) progressBar.style.width = `${percentage}%`;
+    progressTrack?.setAttribute("aria-valuenow", String(completedCount));
+
+    grammarStages.forEach((stage) => {
+      const stageCompleted = stage.topics.filter((topic) => grammarProgress.has(topic.id)).length;
+      const stageElement = main.querySelector(`[data-grammar-stage-count="${stage.id}"]`);
+      const stageDetails = stageElement?.closest(".grammar-stage");
+      if (stageElement) stageElement.textContent = `${stageCompleted}/${stage.topics.length}`;
+      stageDetails?.classList.toggle("is-complete", stageCompleted === stage.topics.length);
+    });
+
+    main.querySelectorAll("[data-grammar-topic-row]").forEach((row) => {
+      row.classList.toggle("is-complete", grammarProgress.has(row.dataset.grammarTopicRow));
+    });
+  }
+
+  function bindGrammarInteractions() {
+    main.querySelectorAll("[data-grammar-checkbox]").forEach((checkbox) => {
+      checkbox.addEventListener("change", () => {
+        const topicId = checkbox.dataset.grammarCheckbox;
+        if (!grammarTopicIds.has(topicId)) return;
+
+        if (checkbox.checked) {
+          grammarProgress.add(topicId);
+        } else {
+          grammarProgress.delete(topicId);
+        }
+
+        persistGrammarProgress();
+        updateGrammarProgressUI();
+      });
+    });
+  }
+
   function updatePageTitle(route) {
     if (route.type === "category") {
       document.title = `${route.category.title} | English Vocabulary`;
+    } else if (route.type === "grammar") {
+      document.title = "Gramer Çalışmalarım | English Vocabulary";
     } else if (route.type === "subcategory") {
       document.title = `${route.subcategory.title} | English Vocabulary`;
     } else if (route.type === "study") {
@@ -1023,6 +1187,7 @@
     const labels = {
       home: "Sprint 3 · Kategoriler",
       category: "Sprint 3 · Alt kategoriler",
+      grammar: "Gramer · Çalışma planı",
       subcategory: "Sprint 3 · Kelime kartları",
       study: "Sprint 4 · Ezber modu",
       "not-found": "Sprint 4 · Kategoriler",
@@ -1073,6 +1238,8 @@
       ? renderHome()
       : route.type === "category"
         ? renderCategory(route.category)
+        : route.type === "grammar"
+          ? renderGrammar()
         : route.type === "subcategory"
           ? renderSubcategory(route.subcategory, route.category, route)
           : route.type === "study"
@@ -1083,6 +1250,7 @@
     bindWordCardInteractions();
     bindStudyInteractions();
     bindStudyNavigation();
+    bindGrammarInteractions();
     updatePageTitle(route);
     updateNavContext(route);
 
