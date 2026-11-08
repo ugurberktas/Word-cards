@@ -33,7 +33,9 @@
 :root {
   color-scheme: light;
   --ink-950: #1f2937;
+  --ink-900: #273142;
   --ink-800: #374151;
+  --ink-700: #4b5563;
   --ink-600: #6b7280;
   --ink-500: #9ca3af;
   --surface: #ffffff;
@@ -2857,6 +2859,24 @@ h3 {
   outline-offset: 3px;
 }
 
+/* Yardımcı metinler özellikle mobilde rahat okunur ve kontrastlı kalsın. */
+.grammar-stage-heading small,
+.grammar-topic-copy small,
+.grammar-overview-stats,
+.grammar-home-link small {
+  color: var(--ink-600);
+  font-size: 0.82rem;
+}
+
+.grammar-topic-copy em {
+  font-size: 0.84rem;
+}
+
+.grammar-topic-copy em span,
+.grammar-stage-heading .section-kicker {
+  font-size: 0.7rem;
+}
+
 @media (max-width: 760px) {
   .grammar-hero {
     display: block;
@@ -2947,6 +2967,6 @@ h3 {
 
   .grammar-topic-copy small,
   .grammar-topic-copy em {
-    font-size: 0.74rem;
+    font-size: 0.82rem;
   }
 }

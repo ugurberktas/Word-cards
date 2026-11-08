@@ -20,7 +20,7 @@ const grammarStages = [
       ["Telefon numaralarının okunması", "", "My phone number is 555 123 45 67."],
       ["Adreslerin söylenmesi", "Sokak, cadde, bina, daire, posta kodu", "I live at 24 Green Street."],
       ["E-posta ve internet adresleri", "At, dot, slash, underscore", "My email is ali underscore kaya at mail dot com."],
-      ["Ölçü birimleri", "Metre, kilometre, kilo, litre, derece", "The water is two degrees cold."],
+      ["Ölçü birimleri", "Metre, kilometre, kilo, litre, derece", "It is two degrees outside."],
       ["Temel yön ve konum tarifleri", "Sağ, sol, düz, kuzey, güney", "The bank is on your left."],
     ],
   },

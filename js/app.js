@@ -612,10 +612,9 @@
     const context = currentWordIds(subcategory, partNumber);
     const sourceWordIds = context.selectedWords.map((word) => word.id);
     const historyKey = studyRouteKey(subcategory.id, context.partKey);
-    const previousSelection = progress.selectionHistory[historyKey] || [];
-    const selectedWordIds = typeof studyTools.selectWordIds === "function"
-      ? studyTools.selectWordIds(sourceWordIds, previousSelection, MAX_STUDY_WORDS)
-      : sourceWordIds.slice(0, MAX_STUDY_WORDS);
+    const savedSelection = progress.selectionHistory[historyKey] || [];
+    const selection = studyTools.selectTourWords(sourceWordIds, savedSelection, MAX_STUDY_WORDS);
+    const selectedWordIds = selection.selectedIds;
     const queue = typeof studyTools.shuffle === "function" ? studyTools.shuffle(selectedWordIds) : [...selectedWordIds];
     const currentWordId = queue.shift();
 
@@ -623,7 +622,7 @@
       return null;
     }
 
-    progress.selectionHistory[historyKey] = [...new Set([...previousSelection, ...selectedWordIds])];
+    progress.selectionHistory[historyKey] = selection.historyIds;
     progress.lastCompleted = null;
     progress.active = {
       version: 1,
@@ -676,6 +675,29 @@
         <div class="completion-actions">
           <button class="study-primary-button" type="button" data-restart-tour>Turu yeniden başlat</button>
           <a class="study-secondary-button" href="${linkForCategory(category)}">Kategoriye dön</a>
+        </div>
+      </div>`;
+    return section;
+  }
+
+  function renderStudyPaused(subcategory, category, active) {
+    const activeEntry = subcategoryById.get(active.subcategoryId);
+    const activePart = active.partKey === "all" ? null : Number(active.partKey);
+    const section = document.createElement("section");
+    section.className = "route-view study-completion-view container";
+    section.innerHTML = `
+      ${breadcrumb([
+        { label: "Ana sayfa", href: "#/" },
+        { label: category.title, href: linkForCategory(category) },
+        { label: subcategory.title },
+      ])}
+      <div class="completion-card">
+        <p class="section-kicker">Devam eden çalışma</p>
+        <h1>Bir turun devam ediyor.</h1>
+        <p>${activeEntry.subcategory.title} · ${partLabel(active.partKey)} çalışmasına kaldığın yerden dönebilirsin.</p>
+        <div class="completion-actions">
+          <a class="study-primary-button" href="${linkForStudy(activeEntry.subcategory, activePart)}">Devam eden tura dön</a>
+          <button class="study-secondary-button" type="button" data-start-new-tour>Bu konuda yeni tur başlat</button>
         </div>
       </div>`;
     return section;
@@ -1011,8 +1033,7 @@
       if (!validOtherActive) {
         clearInvalidActiveTour();
       } else if (studyRouteKey(active.subcategoryId, active.partKey) !== requestedKey) {
-        const newTour = startFreshTour(subcategory, route.partNumber);
-        return newTour ? renderStudyActive(subcategory, category, newTour) : renderEmptySubcategory(subcategory, category);
+        return renderStudyPaused(subcategory, category, validOtherActive);
       }
     }
 
@@ -1087,7 +1108,7 @@
             const stageCompleted = stage.topics.filter((topic) => grammarProgress.has(topic.id)).length;
             const stageIsComplete = stageCompleted === stage.topics.length;
             return `
-              <details class="grammar-stage${stageIsComplete ? " is-complete" : ""}" open>
+              <details class="grammar-stage${stageIsComplete ? " is-complete" : ""}"${stageIndex === 0 ? " open" : ""}>
                 <summary class="grammar-stage-summary">
                   <span class="grammar-stage-number">${String(stageIndex + 1).padStart(2, "0")}</span>
                   <span class="grammar-stage-heading">
@@ -1108,7 +1129,7 @@
                         ${topic.example ? `<em><span>Örnek</span>${topic.example}</em>` : ""}
                       </span>
                       <span class="grammar-topic-check">
-                        <input type="checkbox" data-grammar-checkbox="${topic.id}"${grammarProgress.has(topic.id) ? " checked" : ""} aria-label="${topic.title} tamamlandı">
+                        <input class="grammar-topic-checkbox" type="checkbox" data-grammar-checkbox="${topic.id}"${grammarProgress.has(topic.id) ? " checked" : ""} aria-label="${topic.title} tamamlandı">
                         <span class="grammar-checkmark" aria-hidden="true">✓</span>
                       </span>
                     </label>`).join("")}
