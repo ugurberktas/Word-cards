@@ -575,7 +575,7 @@ h1 em {
   }
 }
 
-/* Sprint 3: word cards and part navigation */
+/* Word card archive */
 
 .word-library {
   padding-bottom: 82px;
@@ -613,87 +613,6 @@ h1 em {
   font-size: 0.85rem;
 }
 
-.part-toolbar {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 24px;
-  padding: 17px 19px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-
-.part-label {
-  margin: 0 0 9px;
-  color: var(--ink-500);
-  font-size: 0.69rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.part-selector {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-
-.part-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 34px;
-  padding: 7px 10px;
-  color: var(--ink-600);
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  font-size: 0.74rem;
-  font-weight: 700;
-  text-decoration: none;
-  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
-}
-
-.part-chip span {
-  display: inline-grid;
-  min-width: 20px;
-  height: 20px;
-  padding-inline: 4px;
-  place-items: center;
-  color: var(--ink-500);
-  background: #fff;
-  border-radius: 7px;
-  font-size: 0.66rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.part-chip:hover {
-  color: var(--blue);
-  border-color: #cfd8f6;
-}
-
-.part-chip.is-active {
-  color: #fff;
-  background: var(--blue);
-  border-color: var(--blue);
-}
-
-.part-chip.is-active span {
-  color: var(--blue);
-  background: #fff;
-}
-
-.part-note {
-  max-width: 240px;
-  margin: 0 0 2px;
-  color: var(--ink-500);
-  font-size: 0.71rem;
-  line-height: 1.5;
-  text-align: right;
-}
-
 .word-card-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -703,6 +622,7 @@ h1 em {
 .word-card {
   min-width: 0;
   height: 296px;
+  -webkit-perspective: 1100px;
   perspective: 1100px;
 }
 
@@ -719,6 +639,7 @@ h1 em {
   cursor: pointer;
   font: inherit;
   text-align: left;
+  -webkit-transform-style: preserve-3d;
   transform-style: preserve-3d;
   transition: transform 430ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
@@ -743,8 +664,8 @@ h1 em {
   border: 1px solid var(--border);
   border-radius: 22px;
   box-shadow: var(--shadow-sm);
-  backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .word-card-face::after {
@@ -760,9 +681,29 @@ h1 em {
   pointer-events: none;
 }
 
+.word-card-front {
+  visibility: visible;
+  opacity: 1;
+  transform: rotateY(0deg) translateZ(1px);
+  transition: visibility 0s linear 215ms, opacity 0s linear 215ms;
+}
+
 .word-card-back {
+  visibility: hidden;
+  opacity: 0;
   background: #fff;
-  transform: rotateY(180deg);
+  transform: rotateY(180deg) translateZ(1px);
+  transition: visibility 0s linear 215ms, opacity 0s linear 215ms;
+}
+
+.word-card.is-flipped .word-card-front {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.word-card.is-flipped .word-card-back {
+  visibility: visible;
+  opacity: 1;
 }
 
 .word-card-back::after {
@@ -897,17 +838,6 @@ h1 em {
     text-align: left;
   }
 
-  .part-toolbar {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  .part-note {
-    max-width: none;
-    text-align: left;
-  }
-
   .word-card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -952,8 +882,7 @@ h1 em {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .word-card-trigger,
-  .part-chip {
+  .word-card-trigger {
     transition-duration: 0.01ms !important;
   }
 }
@@ -1013,6 +942,10 @@ h1 em {
   justify-content: space-between;
   gap: 28px;
   padding: 48px 0 28px;
+}
+
+.study-header > div {
+  min-width: 0;
 }
 
 .study-header h1 {
@@ -1081,22 +1014,30 @@ h1 em {
 
 .study-card-stage {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
   min-height: 440px;
   padding: 16px 0 18px;
   place-items: center;
+  -webkit-perspective: 1200px;
   perspective: 1200px;
 }
 
 .study-card-surface {
   position: relative;
-  width: min(100%, 480px);
+  width: 100%;
+  max-width: 480px;
+  min-width: 0;
   height: 410px;
   cursor: pointer;
   outline: none;
+  -webkit-transform-style: preserve-3d;
   transform-style: preserve-3d;
   touch-action: pan-y;
   user-select: none;
-  transition: transform 430ms cubic-bezier(0.2, 0.7, 0.2, 1), opacity 360ms ease;
+  will-change: transform, opacity;
+  transition: transform 390ms cubic-bezier(0.2, 0.75, 0.2, 1), opacity 320ms ease;
 }
 
 .study-card-surface:focus-visible {
@@ -1106,21 +1047,29 @@ h1 em {
 }
 
 .study-card-surface.is-flipped {
-  transform: rotateY(180deg);
+  cursor: grab;
+  transform: translateX(0) rotate(0) rotateY(180deg);
+}
+
+.study-card-surface.is-dragging {
+  cursor: grabbing;
+  opacity: var(--drag-opacity, 1);
+  transform: translateX(var(--drag-x, 0px)) rotate(var(--drag-rotate, 0deg)) rotateY(180deg);
+  transition: none;
 }
 
 .study-card-surface.is-known {
-  transform: rotateY(180deg) scale(0.82) translateY(-18px);
+  transform: translateY(-18px) scale(0.82) rotateY(180deg);
   opacity: 0;
 }
 
 .study-card-surface.is-swiping-left {
-  transform: rotateY(180deg) translateX(-135%) rotate(-12deg);
+  transform: translateX(-135%) rotate(-12deg) rotateY(180deg);
   opacity: 0;
 }
 
 .study-card-surface.is-swiping-right {
-  transform: rotateY(180deg) translateX(135%) rotate(12deg);
+  transform: translateX(135%) rotate(12deg) rotateY(180deg);
   opacity: 0;
 }
 
@@ -1135,8 +1084,8 @@ h1 em {
   border: 1px solid var(--border);
   border-radius: 28px;
   box-shadow: 0 25px 60px rgba(38, 51, 75, 0.1);
-  backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .study-card-face::after {
@@ -1155,12 +1104,29 @@ h1 em {
 .study-card-front {
   align-items: center;
   justify-content: space-between;
+  visibility: visible;
+  opacity: 1;
   text-align: center;
+  transform: rotateY(0deg) translateZ(1px);
+  transition: visibility 0s linear 215ms, opacity 0s linear 215ms;
 }
 
 .study-card-back {
+  visibility: hidden;
+  opacity: 0;
   background: linear-gradient(150deg, #fff 0%, #fcfdfd 100%);
-  transform: rotateY(180deg);
+  transform: rotateY(180deg) translateZ(1px);
+  transition: visibility 0s linear 215ms, opacity 0s linear 215ms;
+}
+
+.study-card-surface.is-flipped .study-card-front {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.study-card-surface.is-flipped .study-card-back {
+  visibility: visible;
+  opacity: 1;
 }
 
 .study-card-back::after {
@@ -1431,6 +1397,17 @@ h1 em {
     padding-top: 40px;
   }
 
+  .study-header > div {
+    width: auto;
+    max-width: 100%;
+    align-self: stretch;
+  }
+
+  .study-header p:not(.section-kicker) {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
   .study-restart-button {
     align-self: flex-start;
   }
@@ -1509,6 +1486,13 @@ h1 em {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .word-card-front,
+  .word-card-back,
+  .study-card-front,
+  .study-card-back {
+    transition-delay: 0s !important;
+  }
+
   .study-card-surface,
   .study-progress-track span,
   .study-start-button,
@@ -1972,8 +1956,7 @@ h3 {
 .eyebrow,
 .section-kicker,
 .word-card-label,
-.study-card-label,
-.part-label {
+.study-card-label {
   font-weight: var(--font-weight-medium);
 }
 
@@ -1989,7 +1972,6 @@ h3 {
 .section-intro,
 .card-description,
 .route-description,
-.part-note,
 .study-header p:not(.section-kicker),
 .study-help-text,
 .study-attempt-summary,
@@ -2043,7 +2025,6 @@ h3 {
 
 .breadcrumbs,
 .target-count,
-.part-chip,
 .word-card-index,
 .study-restart-button,
 .study-start-button,
@@ -2210,14 +2191,12 @@ h3 {
   --route-tint: var(--primary-soft) !important;
 }
 
-.part-chip:hover,
 .study-secondary-button:hover,
 .study-restart-button:hover,
 .study-control:hover:not(:disabled) {
   border-color: var(--primary-muted);
 }
 
-.part-chip.is-active,
 .study-start-button,
 .study-primary-button {
   color: #fff;

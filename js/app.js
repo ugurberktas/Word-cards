@@ -29,30 +29,9 @@
     wordsBySubcategoryId.set(word.subcategoryId, subcategoryWords);
   });
 
-  const splitIntoParts = EV.utils?.splitIntoParts || ((items, maxItemsPerPart = 25) => {
-    if (!Array.isArray(items) || items.length === 0 || maxItemsPerPart < 1) {
-      return [];
-    }
-
-    const partCount = Math.ceil(items.length / maxItemsPerPart);
-    const baseSize = Math.floor(items.length / partCount);
-    const largerPartCount = items.length % partCount;
-    const parts = [];
-    let cursor = 0;
-
-    for (let index = 0; index < partCount; index += 1) {
-      const partSize = baseSize + (index < largerPartCount ? 1 : 0);
-      parts.push(items.slice(cursor, cursor + partSize));
-      cursor += partSize;
-    }
-
-    return parts;
-  });
-
   const studyTools = EV.study || {};
   const STUDY_STORAGE_KEY = "english-vocabulary:sprint4:v1";
   const GRAMMAR_STORAGE_KEY = "ev.grammar.progress.v1";
-  const MAX_STUDY_WORDS = 20;
   let studyActionLocked = false;
 
   function emptyProgress() {
@@ -137,16 +116,12 @@
     }
   }
 
-  function currentWordIds(subcategory, partNumber) {
+  function currentWordIds(subcategory) {
     const actualWords = wordsBySubcategoryId.get(subcategory.id) || [];
-    const parts = splitIntoParts(actualWords, 25);
-    const validPart = Number.isInteger(partNumber) && partNumber >= 1 && partNumber <= parts.length;
     return {
       actualWords,
-      parts,
-      selectedWords: validPart ? parts[partNumber - 1] : actualWords,
-      selectedPart: validPart ? partNumber : null,
-      partKey: validPart ? String(partNumber) : "all",
+      selectedWords: actualWords,
+      partKey: "all",
     };
   }
 
@@ -167,22 +142,21 @@
       && second.every((id) => firstSet.has(id));
   }
 
-  function validActiveTour(active, subcategory, partNumber) {
+  function validActiveTour(active, subcategory) {
     if (!active || active.subcategoryId !== subcategory.id) {
       return null;
     }
 
-    const context = currentWordIds(subcategory, partNumber);
+    const context = currentWordIds(subcategory);
     const contextIds = context.selectedWords.map((word) => word.id);
     const contextSet = new Set(contextIds);
     const sourceIds = Array.isArray(active.sourceWordIds) ? active.sourceWordIds : [];
     const sourceSet = new Set(sourceIds);
     const sourceIdsAreAvailable = sourceIds.length > 0
       && sameIds(sourceIds, [...sourceSet])
-      && sourceIds.every((id) => contextSet.has(id));
+      && sameIds(sourceIds, contextIds);
 
-    // Veri listesine yeni kelimeler eklendiğinde, eski turun seçtiği kelimeler
-    // hâlâ mevcutsa LocalStorage'daki devam eden tur korunur.
+    // Eski part veya 20 kelimelik turlar yeni tam kategori akışına taşınmaz.
     if (active.partKey !== context.partKey || !sourceIdsAreAvailable) {
       return null;
     }
@@ -196,7 +170,7 @@
 
     const selectedIdsAreValid = selectedIds.length > 0
       && selectedSet.size === selectedIds.length
-      && selectedIds.every((id) => sourceSet.has(id));
+      && sameIds(selectedIds, sourceIds);
     const knownIdsAreValid = knownSet.size === knownIds.length
       && knownIds.every((id) => selectedSet.has(id));
     const queueIsValid = new Set(queue).size === queue.length
@@ -289,9 +263,7 @@
 
   const linkForCategory = (category) => `#/category/${category.id}`;
   const linkForSubcategory = (subcategory) => `#/subcategory/${subcategory.id}`;
-  const linkForStudy = (subcategory, partNumber = null) => partNumber
-    ? `#/study/${subcategory.id}?part=${partNumber}`
-    : `#/study/${subcategory.id}`;
+  const linkForStudy = (subcategory) => `#/study/${subcategory.id}`;
 
   function parseRoute() {
     let hash = location.hash.replace(/^#/, "") || "/";
@@ -302,11 +274,8 @@
       return { type: "not-found" };
     }
 
-    const [path, queryString = ""] = hash.split("?");
+    const [path] = hash.split("?");
     const parts = path.split("/").filter(Boolean);
-    const query = new URLSearchParams(queryString);
-    const partParam = query.get("part");
-    const partNumber = partParam && /^\d+$/.test(partParam) ? Number(partParam) : null;
 
     if (parts.length === 0) {
       return { type: "home" };
@@ -323,12 +292,12 @@
 
     if (parts[0] === "subcategory" && parts[1]) {
       const entry = subcategoryById.get(parts[1]);
-      return entry ? { type: "subcategory", ...entry, partNumber } : { type: "not-found" };
+      return entry ? { type: "subcategory", ...entry } : { type: "not-found" };
     }
 
     if (parts[0] === "study" && parts[1]) {
       const entry = subcategoryById.get(parts[1]);
-      return entry ? { type: "study", ...entry, partNumber } : { type: "not-found" };
+      return entry ? { type: "study", ...entry } : { type: "not-found" };
     }
 
     return { type: "not-found" };
@@ -445,10 +414,6 @@
     return section;
   }
 
-  function linkForPart(subcategory, partNumber) {
-    return partNumber ? `${linkForSubcategory(subcategory)}?part=${partNumber}` : linkForSubcategory(subcategory);
-  }
-
   function wordCardTemplate(word, index) {
     const isPhrase = word.partOfSpeech === "Phrase";
     const isTechnical = Boolean(word.descriptionTr);
@@ -489,31 +454,7 @@
       </article>`;
   }
 
-  function renderPartNavigation(subcategory, actualWords, parts, selectedPart) {
-    return `
-      <div class="part-toolbar">
-        <div>
-          <p class="part-label">Görünüm</p>
-          <nav class="part-selector" aria-label="Kelime partları">
-            <a class="part-chip${selectedPart === null ? " is-active" : ""}" href="${linkForPart(subcategory, null)}"${selectedPart === null ? ' aria-current="page"' : ""}>
-              Tüm kelimeler <span>${actualWords.length}</span>
-            </a>
-            ${parts.map((part, index) => `
-              <a class="part-chip${selectedPart === index + 1 ? " is-active" : ""}" href="${linkForPart(subcategory, index + 1)}"${selectedPart === index + 1 ? ' aria-current="page"' : ""}>
-                Part ${index + 1} <span>${part.length}</span>
-              </a>`).join("")}
-          </nav>
-        </div>
-        <p class="part-note">${actualWords.length} eklenmiş kart · Boş hedefler karta dönüştürülmez.</p>
-      </div>`;
-  }
-
-  function renderWordLibrary(subcategory, category, actualWords, route) {
-    const parts = splitIntoParts(actualWords, 25);
-    const selectedPart = Number.isInteger(route.partNumber) && route.partNumber >= 1 && route.partNumber <= parts.length
-      ? route.partNumber
-      : null;
-    const visibleWords = selectedPart === null ? actualWords : parts[selectedPart - 1];
+  function renderWordLibrary(subcategory, category, actualWords) {
     const section = document.createElement("section");
     section.className = "route-view subcategory-view word-library-view";
     section.innerHTML = `
@@ -540,15 +481,13 @@
               <h2 id="word-library-title">Eklenen kelimeler</h2>
             </div>
             <p class="word-library-summary"><strong>${actualWords.length} gerçek kart</strong><span>Bu sprintte eklenen içerik</span></p>
-            <a class="study-start-button" href="${linkForStudy(subcategory, selectedPart)}" data-start-new-tour="archive">
+            <a class="study-start-button" href="${linkForStudy(subcategory)}" data-start-new-tour="archive">
               <span aria-hidden="true">✦</span> Ezberlemeye başla
             </a>
           </div>
 
-          ${renderPartNavigation(subcategory, actualWords, parts, selectedPart)}
-
           <div class="word-card-grid" aria-live="polite">
-            ${visibleWords.map((word, index) => wordCardTemplate(word, index)).join("")}
+            ${actualWords.map((word, index) => wordCardTemplate(word, index)).join("")}
           </div>
         </section>
 
@@ -601,20 +540,17 @@
     return section;
   }
 
-  function renderSubcategory(subcategory, category, route) {
+  function renderSubcategory(subcategory, category) {
     const actualWords = wordsBySubcategoryId.get(subcategory.id) || [];
     return actualWords.length > 0
-      ? renderWordLibrary(subcategory, category, actualWords, route)
+      ? renderWordLibrary(subcategory, category, actualWords)
       : renderEmptySubcategory(subcategory, category);
   }
 
-  function createNewTour(subcategory, partNumber) {
-    const context = currentWordIds(subcategory, partNumber);
+  function createNewTour(subcategory) {
+    const context = currentWordIds(subcategory);
     const sourceWordIds = context.selectedWords.map((word) => word.id);
-    const historyKey = studyRouteKey(subcategory.id, context.partKey);
-    const savedSelection = progress.selectionHistory[historyKey] || [];
-    const selection = studyTools.selectTourWords(sourceWordIds, savedSelection, MAX_STUDY_WORDS);
-    const selectedWordIds = selection.selectedIds;
+    const selectedWordIds = [...sourceWordIds];
     const queue = typeof studyTools.shuffle === "function" ? studyTools.shuffle(selectedWordIds) : [...selectedWordIds];
     const currentWordId = queue.shift();
 
@@ -622,7 +558,6 @@
       return null;
     }
 
-    progress.selectionHistory[historyKey] = selection.historyIds;
     progress.lastCompleted = null;
     progress.active = {
       version: 1,
@@ -642,14 +577,10 @@
     return progress.active;
   }
 
-  function startFreshTour(subcategory, partNumber) {
+  function startFreshTour(subcategory) {
     progress.active = null;
     progress.lastCompleted = null;
-    return createNewTour(subcategory, partNumber);
-  }
-
-  function partLabel(partKey) {
-    return partKey === "all" ? "Tüm kelimeler" : `Part ${partKey}`;
+    return createNewTour(subcategory);
   }
 
   function renderStudyCompletion(subcategory, category, summary) {
@@ -665,7 +596,7 @@
         <div class="completion-icon" aria-hidden="true">✓</div>
         <p class="section-kicker">Tur tamamlandı</p>
         <h1>Harika, bu turu tamamladın.</h1>
-        <p>${subcategory.title} · ${partLabel(summary.partKey)}</p>
+        <p>${subcategory.title} · Tüm kelimeler</p>
         <div class="completion-stats">
           <div><strong>${summary.selectedCount}</strong><span>Çalışılan benzersiz kelime</span></div>
           <div><strong>${summary.knownCount}</strong><span>Bilinen kelime</span></div>
@@ -682,7 +613,6 @@
 
   function renderStudyPaused(subcategory, category, active) {
     const activeEntry = subcategoryById.get(active.subcategoryId);
-    const activePart = active.partKey === "all" ? null : Number(active.partKey);
     const section = document.createElement("section");
     section.className = "route-view study-completion-view container";
     section.innerHTML = `
@@ -694,9 +624,9 @@
       <div class="completion-card">
         <p class="section-kicker">Devam eden çalışma</p>
         <h1>Bir turun devam ediyor.</h1>
-        <p>${activeEntry.subcategory.title} · ${partLabel(active.partKey)} çalışmasına kaldığın yerden dönebilirsin.</p>
+        <p>${activeEntry.subcategory.title} · Tüm kelimeler çalışmasına kaldığın yerden dönebilirsin.</p>
         <div class="completion-actions">
-          <a class="study-primary-button" href="${linkForStudy(activeEntry.subcategory, activePart)}">Devam eden tura dön</a>
+          <a class="study-primary-button" href="${linkForStudy(activeEntry.subcategory)}">Devam eden tura dön</a>
           <button class="study-secondary-button" type="button" data-start-new-tour>Bu konuda yeni tur başlat</button>
         </div>
       </div>`;
@@ -728,7 +658,7 @@
 
         <header class="study-header">
           <div>
-            <p class="section-kicker">Ezber modu · ${partLabel(active.partKey)}</p>
+            <p class="section-kicker">Ezber modu · ${selectedCount} kelime</p>
             <h1>${subcategory.title}</h1>
             <p>Önce İngilizceyi gör, kartı çevir ve bildiklerini turdan çıkar.</p>
           </div>
@@ -773,7 +703,7 @@
             <span aria-hidden="true">✓</span> Biliyorum
           </button>
         </div>
-        <p class="study-help-text">Kartın arka yüzünde ortasına dokun: biliyorum · Sağa/sola kaydır: tekrar göster · Enter / Space ile kullan</p>
+        <p class="study-help-text">Arka yüze dokun: biliyorum · Kartı sağa/sola sürükle: tekrar göster · Enter / Space ile kullan</p>
         <p class="study-attempt-summary">Bu turdaki toplam tekrar denemesi: <strong>${active.unknownAttempts}</strong></p>
       </div>`;
     return section;
@@ -817,8 +747,8 @@
       return false;
     }
 
-    const latestContext = currentWordIds(latestRoute.subcategory, latestRoute.partNumber);
-    const routeContext = currentWordIds(route.subcategory, route.partNumber);
+    const latestContext = currentWordIds(latestRoute.subcategory);
+    const routeContext = currentWordIds(route.subcategory);
     return latestContext.partKey === routeContext.partKey;
   }
 
@@ -833,7 +763,7 @@
     }
 
     const card = main.querySelector("[data-study-card]");
-    const active = validActiveTour(progress.active, route.subcategory, route.partNumber);
+    const active = validActiveTour(progress.active, route.subcategory);
     if (!card || !active || !card.classList.contains("is-flipped")) {
       return;
     }
@@ -906,10 +836,17 @@
     }
 
     let pointerStart = null;
-    const swipeThreshold = 56;
+    const dragStartThreshold = 8;
+
+    function resetDragPosition() {
+      card.classList.remove("is-dragging");
+      card.style.removeProperty("--drag-x");
+      card.style.removeProperty("--drag-rotate");
+      card.style.removeProperty("--drag-opacity");
+    }
 
     card.addEventListener("pointerdown", (event) => {
-      if (studyActionLocked) {
+      if (studyActionLocked || event.isPrimary === false) {
         return;
       }
 
@@ -918,6 +855,9 @@
         type: event.pointerType,
         x: event.clientX,
         y: event.clientY,
+        startedAt: performance.now(),
+        dragging: false,
+        verticalIntent: false,
         startedOnDescription: Boolean(event.target.closest?.(".study-card-description")),
       };
 
@@ -926,30 +866,72 @@
       }
     });
 
-    card.addEventListener("pointerup", (event) => {
-      if (!pointerStart || pointerStart.id !== event.pointerId) {
+    card.addEventListener("pointermove", (event) => {
+      if (!pointerStart
+        || pointerStart.id !== event.pointerId
+        || pointerStart.verticalIntent
+        || !card.classList.contains("is-flipped")) {
         return;
       }
 
       const deltaX = event.clientX - pointerStart.x;
       const deltaY = event.clientY - pointerStart.y;
-      const horizontalSwipe = Math.abs(deltaX) >= swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY);
-      const smallTap = Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10;
-      const startedOnDescription = pointerStart.startedOnDescription;
-      const endedOnDescription = Boolean(event.target.closest?.(".study-card-description"));
-      pointerStart = null;
+      const absoluteX = Math.abs(deltaX);
+      const absoluteY = Math.abs(deltaY);
 
-      if (startedOnDescription || endedOnDescription) {
-        if (horizontalSwipe && card.classList.contains("is-flipped")) {
-          performStudyAction("unknown", deltaX < 0 ? "left" : "right");
+      if (!pointerStart.dragging) {
+        if (absoluteY >= dragStartThreshold && absoluteY > absoluteX) {
+          pointerStart.verticalIntent = true;
+          return;
         }
+
+        if (absoluteX < dragStartThreshold || absoluteX <= absoluteY) {
+          return;
+        }
+
+        pointerStart.dragging = true;
+        card.classList.add("is-dragging");
+        card.setPointerCapture?.(event.pointerId);
+      }
+
+      if (event.cancelable) {
+        event.preventDefault();
+      }
+
+      const cardWidth = Math.max(card.clientWidth, 1);
+      const limitedX = Math.max(-cardWidth * 1.1, Math.min(cardWidth * 1.1, deltaX));
+      const rotation = Math.max(-10, Math.min(10, (deltaX / cardWidth) * 12));
+      const opacity = Math.max(0.76, 1 - (absoluteX / cardWidth) * 0.22);
+      card.style.setProperty("--drag-x", `${limitedX}px`);
+      card.style.setProperty("--drag-rotate", `${rotation}deg`);
+      card.style.setProperty("--drag-opacity", String(opacity));
+    });
+
+    card.addEventListener("pointerup", (event) => {
+      if (!pointerStart || pointerStart.id !== event.pointerId || event.isPrimary === false) {
         return;
       }
 
-      if (horizontalSwipe) {
-        if (card.classList.contains("is-flipped")) {
-          performStudyAction("unknown", deltaX < 0 ? "left" : "right");
-        }
+      const deltaX = event.clientX - pointerStart.x;
+      const deltaY = event.clientY - pointerStart.y;
+      const elapsed = Math.max(performance.now() - pointerStart.startedAt, 1);
+      const swipeThreshold = Math.min(82, Math.max(56, card.clientWidth * 0.16));
+      const quickFlick = Math.abs(deltaX) >= 36 && Math.abs(deltaX) / elapsed >= 0.55;
+      const horizontalSwipe = (Math.abs(deltaX) >= swipeThreshold || quickFlick)
+        && Math.abs(deltaX) > Math.abs(deltaY);
+      const smallTap = Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10;
+      const wasDragging = pointerStart.dragging;
+      const startedOnDescription = pointerStart.startedOnDescription;
+      const endedOnDescription = Boolean(event.target.closest?.(".study-card-description"));
+      pointerStart = null;
+      resetDragPosition();
+
+      if (horizontalSwipe && card.classList.contains("is-flipped")) {
+        performStudyAction("unknown", deltaX < 0 ? "left" : "right");
+        return;
+      }
+
+      if (wasDragging || startedOnDescription || endedOnDescription) {
         return;
       }
 
@@ -964,6 +946,7 @@
 
     card.addEventListener("pointercancel", () => {
       pointerStart = null;
+      resetDragPosition();
     });
 
     card.addEventListener("keydown", (event) => {
@@ -991,8 +974,8 @@
       button.addEventListener("click", () => {
         const route = parseRoute();
         if (route.type === "subcategory" && button.dataset.startNewTour === "archive") {
-          startFreshTour(route.subcategory, route.partNumber);
-          location.hash = linkForStudy(route.subcategory, route.partNumber).slice(1);
+          startFreshTour(route.subcategory);
+          location.hash = linkForStudy(route.subcategory).slice(1);
           return;
         }
 
@@ -1000,7 +983,7 @@
           return;
         }
 
-        startFreshTour(route.subcategory, route.partNumber);
+        startFreshTour(route.subcategory);
         render();
       });
     });
@@ -1011,13 +994,13 @@
         return;
       }
 
-      startFreshTour(route.subcategory, route.partNumber);
+      startFreshTour(route.subcategory);
       render();
     });
   }
 
-  function renderStudy(subcategory, category, route) {
-    const context = currentWordIds(subcategory, route.partNumber);
+  function renderStudy(subcategory, category) {
+    const context = currentWordIds(subcategory);
     if (context.actualWords.length === 0) {
       return renderEmptySubcategory(subcategory, category);
     }
@@ -1027,8 +1010,7 @@
 
     if (active) {
       const activeEntry = subcategoryById.get(active.subcategoryId);
-      const activePartNumber = active.partKey === "all" ? null : Number(active.partKey);
-      const validOtherActive = activeEntry ? validActiveTour(active, activeEntry.subcategory, activePartNumber) : null;
+      const validOtherActive = activeEntry ? validActiveTour(active, activeEntry.subcategory) : null;
 
       if (!validOtherActive) {
         clearInvalidActiveTour();
@@ -1037,7 +1019,7 @@
       }
     }
 
-    const currentActive = validActiveTour(progress.active, subcategory, route.partNumber);
+    const currentActive = validActiveTour(progress.active, subcategory);
     if (currentActive) {
       progress.active = currentActive;
       return renderStudyActive(subcategory, category, currentActive);
@@ -1048,7 +1030,7 @@
       return renderStudyCompletion(subcategory, category, completed);
     }
 
-    const newTour = createNewTour(subcategory, route.partNumber);
+    const newTour = createNewTour(subcategory);
     return newTour ? renderStudyActive(subcategory, category, newTour) : renderEmptySubcategory(subcategory, category);
   }
 
@@ -1262,9 +1244,9 @@
         : route.type === "grammar"
           ? renderGrammar()
         : route.type === "subcategory"
-          ? renderSubcategory(route.subcategory, route.category, route)
+          ? renderSubcategory(route.subcategory, route.category)
           : route.type === "study"
-            ? renderStudy(route.subcategory, route.category, route)
+            ? renderStudy(route.subcategory, route.category)
           : renderNotFound();
 
     main.replaceChildren(view);

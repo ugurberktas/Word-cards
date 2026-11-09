@@ -9,15 +9,15 @@ HTML, CSS ve Vanilla JavaScript ile çalışan kişisel İngilizce kelime ve gra
 ## Bölümler
 
 - Beş ana kategori, 45 alt kategori ve 1.248 kelime/ifade kartı
-- Kart arşivi, en fazla 25 kelimelik dengeli partlar ve 3D kart çevirme
-- En fazla 20 kelimelik ezber turu; bilinmeyen kartlar tekrar sıraya girer
+- Kart arşivi ve 3D kart çevirme
+- Alt kategorideki tüm kelimeleri kapsayan ezber turu; bilinmeyen kartlar tekrar sıraya girer
 - Beş aşamalı, 79 konuluk gramer çalışma planı
 
 Kelime turu ve gramer tikleri tarayıcının `localStorage` alanında ayrı anahtarlarla saklanır. Tarayıcı verilerini temizlemek bu kayıtları kaldırır.
 
 ## Veri ve test
 
-Kategoriler `js/categories.js`, kelimeler `js/words.js`, gramer planı `js/grammar.js` içindedir. Part ve çalışma seçim mantığı sırasıyla `js/parts.js` ve `js/study.js` dosyalarındadır.
+Kategoriler `js/categories.js`, kelimeler `js/words.js`, gramer planı `js/grammar.js` içindedir. Çalışma sırası ve tekrar mantığı `js/study.js` dosyasındadır.
 
 Node.js kuruluysa veri ve algoritma kontrollerini çalıştırın:
 

@@ -14,32 +14,6 @@ function shuffleStudyItems(items, random = Math.random) {
 
 window.EV.study.shuffle = shuffleStudyItems;
 
-window.EV.study.selectWordIds = function selectWordIds(wordIds, selectionHistory = [], maxWords = 20, random = Math.random) {
-  const uniqueWordIds = [...new Set(wordIds)];
-  const history = new Set(selectionHistory);
-  const notSelectedYet = uniqueWordIds.filter((wordId) => !history.has(wordId));
-  const selectedBefore = uniqueWordIds.filter((wordId) => history.has(wordId));
-  const prioritized = [
-    ...shuffleStudyItems(notSelectedYet, random),
-    ...shuffleStudyItems(selectedBefore, random),
-  ];
-
-  return prioritized.slice(0, Math.min(maxWords, uniqueWordIds.length));
-};
-
-window.EV.study.selectTourWords = function selectTourWords(wordIds, selectionHistory = [], maxWords = 20, random = Math.random) {
-  const availableIds = [...new Set(wordIds)];
-  const availableSet = new Set(availableIds);
-  const previousIds = [...new Set(selectionHistory)].filter((id) => availableSet.has(id));
-  const cycleIds = previousIds.length === availableIds.length ? [] : previousIds;
-  const selectedIds = window.EV.study.selectWordIds(availableIds, cycleIds, maxWords, random);
-
-  return {
-    selectedIds,
-    historyIds: [...new Set([...cycleIds, ...selectedIds])],
-  };
-};
-
 window.EV.study.requeueWord = function requeueWord(queue, wordId, random = Math.random) {
   const nextQueue = [...queue].filter((queuedWordId) => queuedWordId !== wordId);
 

@@ -8,13 +8,12 @@ const root = path.resolve(__dirname, "..");
 const context = { window: { EV: {} } };
 vm.createContext(context);
 
-for (const file of ["js/categories.js", "js/words.js", "js/parts.js", "js/study.js", "js/grammar.js"]) {
+for (const file of ["js/categories.js", "js/words.js", "js/study.js", "js/grammar.js"]) {
   vm.runInContext(fs.readFileSync(path.join(root, file), "utf8"), context, { filename: file });
 }
 
 const { categories, words, grammar } = context.window.EV.data;
-const { splitIntoParts } = context.window.EV.utils;
-const { selectTourWords, requeueWord } = context.window.EV.study;
+const { shuffle, requeueWord } = context.window.EV.study;
 
 test("kategori, kelime ve gramer verileri tutarlı", () => {
   const subcategories = categories.flatMap((category) => category.subcategories);
@@ -31,29 +30,13 @@ test("kategori, kelime ve gramer verileri tutarlı", () => {
   assert.deepEqual(Array.from(topics, (topic) => topic.id), Array.from({ length: 79 }, (_, index) => `grammar-${String(index + 1).padStart(3, "0")}`));
 });
 
-test("partlar bütün kelimeleri dengeli kapsıyor", () => {
-  for (const count of [6, 15, 20, 25, 30, 35, 50, 60]) {
+test("ezber turu alt kategorideki bütün kelimeleri kapsıyor", () => {
+  for (const count of [6, 15, 20, 25, 30, 35, 40, 50, 60]) {
     const ids = Array.from({ length: count }, (_, index) => String(index));
-    const parts = splitIntoParts(ids, 25);
-    assert.deepEqual(Array.from(parts.flat()), ids);
-    assert.ok(parts.every((part) => part.length <= 25));
-    assert.ok(Math.max(...parts.map((part) => part.length)) - Math.min(...parts.map((part) => part.length)) <= 1);
+    const tourIds = shuffle(ids, () => 0.5);
+    assert.equal(tourIds.length, count);
+    assert.deepEqual([...tourIds].sort(), [...ids].sort());
   }
-});
-
-test("25 kelimelik partta dışarıda kalanlar sonraki turda seçiliyor", () => {
-  const ids = Array.from({ length: 25 }, (_, index) => `word-${index}`);
-  const first = selectTourWords(ids, [], 20, () => 0.5);
-  const second = selectTourWords(ids, first.historyIds, 20, () => 0.5);
-  const excluded = ids.filter((id) => !first.selectedIds.includes(id));
-
-  assert.equal(first.selectedIds.length, 20);
-  assert.ok(excluded.every((id) => second.selectedIds.includes(id)));
-  assert.equal(second.historyIds.length, 25);
-
-  const third = selectTourWords(ids, second.historyIds, 20, () => 0.5);
-  assert.equal(third.selectedIds.length, 20);
-  assert.equal(third.historyIds.length, 20);
 });
 
 test("bilinmeyen kelime sıraya geri ekleniyor", () => {
